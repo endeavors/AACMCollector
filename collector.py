@@ -1,3 +1,5 @@
+#!/usr/local/bin/python
+
 from bs4 import BeautifulSoup
 from directorize import *
 import imaplib, getpass, email, datetime, re, time
