@@ -1,9 +1,11 @@
 from bs4 import BeautifulSoup
-import sys, imaplib, getpass, email, datetime, re, io, json, time
+from directorize import *
+import imaplib, getpass, email, datetime, re, time
 
 dictLinks = {}
 monthList = ["jan", "feb", "mar", "apr", "may", "jun", 
             "jul", "aug", "sep", "oct", "nov", "dec"]
+defaultFileName = "./dataLinks.json"
 
 def parseDate(rawDate):
     parseDate = email.utils.parsedate_tz(rawDate)
@@ -54,8 +56,25 @@ def fetchAllLinks(data):
         
         print "\rCompleted: %d/%d" % (idx+1, len(splitData)),
         sys.stdout.flush()
-
+        
         time.sleep(1)
+
+def writeToFile(data):
+    with open(defaultFileName, "w") as outfile:
+        json.dump(data, outfile, sort_keys = True, indent = 4, ensure_ascii=False)
+        print "\nTotal of", len(data), "links written to the file. Success!"
+
+def attempFile(status, data):
+    if status == "OK":
+        fetchAllLinks(data)
+        if os.path.isfile(defaultFileName):
+            oldDict = loadFromFile(defaultFileName)
+            dictLinks.update(oldDict)
+        writeToFile(dictLinks)
+    else:
+        mail.close()
+        mail.logout()
+        print "No messages found! Logging out."
 
 def loginAndSearchMail():
     try:
@@ -74,20 +93,12 @@ def loginAndSearchMail():
                 dateFilter = "" if len(inputDate.strip()) == 0 else " SINCE " + matchedDate.group()
                 status, data = mail.search(None, '(FROM "maryjohnsonkhan@gmail.com"' + dateFilter + ")")
                 break
-                
-        if status == "OK":
-            fetchAllLinks(data)
-            with open("./dataLinks.json", "w") as outfile:
-                json.dump(dictLinks, outfile, sort_keys = True, indent = 4, ensure_ascii=False)
-                print "\nTotal of", len(dictLinks), "links found and written to the file. Success!"
 
-        else:
-            mail.close()
-            mail.logout()
-            print "No messages found!"
+        attempFile(status, data)
          
     except imaplib.IMAP4.error:
         print "LOGIN FAILED!!!"
+        sys.exit()
 
 if __name__ == "__main__":
 
@@ -104,7 +115,12 @@ if __name__ == "__main__":
             elif selectionNum == "2":
                 mail = imaplib.IMAP4_SSL('imap.gmail.com')
             
+            print ("Note: You will need to create your app specific password if you have 2 step"
+                " verification enabled.")
             loginAndSearchMail()
             break
-        
-
+    
+    print "Updating local directories...Don't shut down"
+    createEnclosingDir()
+    iterateDict(dictLinks)
+    print "\nAll Done!"
